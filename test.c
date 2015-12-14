@@ -3,6 +3,11 @@
 #include <stdio.h>
 #include <ctype.h>
 
+char destroys[2048] = "";
+
+char const * const get_destroys() { return destroys; }
+void clear_destroys() { destroys[0]=0; }
+
 typedef struct One {
   int32_t the_int;
 } One;
@@ -26,6 +31,9 @@ extern char const * string_one(const One * const o) {
 }
 
 extern void free_one(One * const o) {
+  char *tmp = strdup(destroys);
+  snprintf(destroys,2048,"%s\nfree_one(%p)",tmp,(void*)o);
+  free(tmp);
   free(o);
 }
 
@@ -45,5 +53,8 @@ extern char const * string_two(const Two * const o) {
 }
 
 extern void free_two(Two * const o) {
+  char *tmp = strdup(destroys);
+  snprintf(destroys,2048,"%s\nfree_two(%p)",tmp,(void*)o);
+  free(tmp);
   free(o);
 }

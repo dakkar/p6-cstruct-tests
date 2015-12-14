@@ -3,6 +3,32 @@ use v6;
 use NativeCall;
 use Test;
 
+sub cmp-deeply(Mu $got, Mu $expected, $reason = '') {
+    my $test = $got ~~ $expected;
+    my $ok = ok($test, $reason);
+    if !$test {
+        my $got_perl      = try { $got.perl };
+        my $expected_perl = try { $expected.perl };
+        if $got_perl.defined && $expected_perl.defined {
+            diag "expected: $expected_perl";
+            diag "     got: $got_perl";
+        }
+    }
+    $ok;
+}
+
+my @events;
+sub get_destroys() returns Str is native('test') {*}
+sub clear_destroys() is native('test') {*}
+
+sub get_events {
+    (@events,get_destroys.split(/\n/)).flat.grep(*.chars);
+}
+sub clear_events {
+    @events=();
+    clear_destroys();
+}
+
 my class One is repr('CStruct') {
     has int32 $.int is rw;
 
@@ -23,6 +49,7 @@ my class One is repr('CStruct') {
     }
     
     submethod DESTROY() {
+        push @events,sprintf('One.DESTROY(0x%x)',self.WHERE);
         free_one(self);
     }
 }
@@ -54,45 +81,78 @@ my class Two is One is repr('CStruct') {
     }
 
     submethod DESTROY() {
+        push @events,sprintf('Two.DESTROY(0x%x)',self.WHERE);
         free_two(self);
     }
 }
 
-my One $x .= new(12);
-is(
-    $x.Str,
-    "One int: 12\n",
-    'C stringification should work',
-);
-is(
-    $x.perl_string,
-    "Perl One int: 12\n",
-    'Perl stringification should work',
-);
+{
+    my One $x .= new(12);
+    is(
+        $x.Str,
+        "One int: 12\n",
+        'C stringification should work',
+    );
+    is(
+        $x.perl_string,
+        "Perl One int: 12\n",
+        'Perl stringification should work',
+    );
 
-my Two $y .= new(15,"foo");
-is(
-    $y.Str,
-    "Two int: 15\nTwo str: foo\n",
-    'C stringification should work',
-);
-is(
-    $y.perl_string,
-    "Perl Two int: 15\nPerl Two str: foo\n",
-    'Perl stringification should work',
-);
+    cmp-deeply(
+        get_events(),
+        (),
+        'no destructors should have been called yet',
+    );
+    clear_events;
+    $x.DESTROY;
+    cmp-deeply(
+        get_events(),
+        (rx{^One\.DESTROY},rx{^free_one}),
+        'Perl and C destructors should have been called',
+    );
+    clear_events;
+}
 
-$y.int = 37;
-$y.str = "bar";
-is(
-    $y.Str,
-    "Two int: 37\nTwo str: bar\n",
-    'C stringification should work after modifying attributes',
-);
-is(
-    $y.perl_string,
-    "Perl Two int: 37\nPerl Two str: bar\n",
-    'Perl stringification should work after modifying attributes',
-);
+{
+    my Two $y .= new(15,"foo");
+    is(
+        $y.Str,
+        "Two int: 15\nTwo str: foo\n",
+        'C stringification should work',
+    );
+    is(
+        $y.perl_string,
+        "Perl Two int: 15\nPerl Two str: foo\n",
+        'Perl stringification should work',
+    );
+
+    $y.int = 37;
+    $y.str = "bar";
+    is(
+        $y.Str,
+        "Two int: 37\nTwo str: bar\n",
+        'C stringification should work after modifying attributes',
+    );
+    is(
+        $y.perl_string,
+        "Perl Two int: 37\nPerl Two str: bar\n",
+        'Perl stringification should work after modifying attributes',
+    );
+
+    cmp-deeply(
+        get_events(),
+        (),
+        'no destructors should have been called yet',
+    );
+    clear_events;
+    $y.DESTROY;
+    cmp-deeply(
+        get_events(),
+        (rx{^Two\.DESTROY},rx{^free_two}),
+        'Perl and C destructors should have been called',
+    );
+    clear_events;
+}
 
 done-testing;
