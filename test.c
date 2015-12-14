@@ -19,8 +19,10 @@ extern One* new_one(int x) {
   return ret;
 }
 
-extern void print_one(const One * const o) {
-  printf("One int: %d\n",o->the_int);
+extern char const * string_one(const One * const o) {
+  char buffer[200];
+  snprintf(buffer,200,"One int: %d\n",o->the_int);
+  return strdup(buffer);
 }
 
 extern void free_one(One * const o) {
@@ -35,9 +37,11 @@ extern Two* new_two(int x,const char * const s) {
   return ret;
 }
 
-extern void print_two(const Two * const o) {
-  printf("Two int: %d\n",o->parent.the_int);
-  printf("Two str: %s\n",o->string);
+extern char const * string_two(const Two * const o) {
+  char buffer[200];
+  snprintf(buffer,200,"Two int: %d\nTwo str: %s\n",
+           o->parent.the_int,o->string);
+  return strdup(buffer);
 }
 
 extern void free_two(Two * const o) {
